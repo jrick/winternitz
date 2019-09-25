@@ -30,12 +30,13 @@ import (
 // list is the full 1088 byte public key.
 type SecretKey [32]byte
 
-// PublicKey is a fingerprint of the final 1088-byte hash list.
+// Fingerprint is a Blake2b-256 hash of a 1088-byte public key.
 //
 // Verifying a valid signed message results in the recovery of the 1088-byte
-// public key from the signature.  The public key hash list is then hashed with
-// Blake2b-256 and compared to this fingerprint to determine signature validity.
-type PublicKey [32]byte
+// public key from the signature.  When verifying, the recovered public key is
+// hashed with Blake2b-256 and compared to the fingerprint to determine
+// signature validity.
+type Fingerprint [32]byte
 
 // Signature is a proof that the possessor of the associated secret key for some
 // public key has digitally signed a message, proving the authenticity of the
@@ -54,7 +55,7 @@ type Signature [1088]byte // 34 * 32
 
 // GenerateKey derives a public and secret key, reading cryptographically-secure
 // randomness from rand.
-func GenerateKey(rand io.Reader) (pk *PublicKey, sk *SecretKey, err error) {
+func GenerateKey(rand io.Reader) (fp *Fingerprint, sk *SecretKey, err error) {
 	sk = new(SecretKey)
 	_, err = rand.Read(sk[:])
 	if err != nil {
@@ -80,9 +81,9 @@ func GenerateKey(rand io.Reader) (pk *PublicKey, sk *SecretKey, err error) {
 		copy(y[off:off+32], h[:])
 	}
 
-	pk = new(PublicKey)
-	fingerprint := blake2b.Sum256(y[:])
-	copy(pk[:], fingerprint[:])
+	fp = new(Fingerprint)
+	pkHash := blake2b.Sum256(y[:])
+	copy(fp[:], pkHash[:])
 
 	return
 }
@@ -137,8 +138,8 @@ func Sign(sk *SecretKey, message []byte) *Signature {
 }
 
 // Verify checks whether sig is a valid signature created by the secret key of
-// pk for message.
-func Verify(pk *PublicKey, message []byte, sig *Signature) bool {
+// fp for message.
+func Verify(fp *Fingerprint, message []byte, sig *Signature) bool {
 	messageHash := checksummedMessageHash(message)
 
 	var y [len(messageHash) * 32]byte = *sig
@@ -152,9 +153,8 @@ func Verify(pk *PublicKey, message []byte, sig *Signature) bool {
 		copy(bytepub, h[:])
 	}
 
-	// Signature is verified if the hash of the pubkey (which is the hashing
-	// of each signature hash to the pubkey portion) matches the public key
-	// parameter (actually a fingerprint).
-	fingerprint := blake2b.Sum256(y[:])
-	return bytes.Equal(pk[:], fingerprint[:])
+	// Signature is verified if the hash of the recovered pubkey equals the
+	// fingerprint.
+	pkHash := blake2b.Sum256(y[:])
+	return bytes.Equal(fp[:], pkHash[:])
 }
