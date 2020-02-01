@@ -57,7 +57,7 @@ type Signature [1088]byte // 34 * 32
 // randomness from rand.
 func GenerateKey(rand io.Reader) (fp *Fingerprint, sk *SecretKey, err error) {
 	sk = new(SecretKey)
-	_, err = rand.Read(sk[:])
+	_, err = io.ReadFull(rand, sk[:])
 	if err != nil {
 		return
 	}
