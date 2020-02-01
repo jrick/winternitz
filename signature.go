@@ -18,8 +18,8 @@ import (
 	"encoding/binary"
 	"io"
 
-	"decred.org/cspp/chacha20prng"
 	"golang.org/x/crypto/blake2b"
+	"golang.org/x/crypto/chacha20"
 )
 
 // SecretKey is a seed for creating the initial hash list to create a Lamport
@@ -71,7 +71,9 @@ func GenerateKey(rand io.Reader) (fp *Fingerprint, sk *SecretKey, err error) {
 	// As a space optimization, hashes are performed in place instead of creating
 	// each of the 256 hash lists individually.
 	var y [34 * 32]byte
-	chacha20prng.New(sk[:], 0).Read(y[:])   // never errors
+	nonce := make([]byte, chacha20.NonceSize)
+	cipher, _ := chacha20.NewUnauthenticatedCipher(sk[:], nonce) // never errors
+	cipher.XORKeyStream(y[:], y[:])
 	for off := 0; off < len(y); off += 32 { // Iterate through each hash of this hash list
 		var h [32]byte
 		copy(h[:], y[off:off+32])
@@ -123,7 +125,9 @@ func Sign(sk *SecretKey, message []byte) *Signature {
 	messageHash := checksummedMessageHash(message)
 
 	var y [len(messageHash) * 32]byte
-	chacha20prng.New(sk[:], 0).Read(y[:]) // never errors
+	nonce := make([]byte, chacha20.NonceSize)
+	cipher, _ := chacha20.NewUnauthenticatedCipher(sk[:], nonce) // never errors
+	cipher.XORKeyStream(y[:], y[:])
 	for i, b := range messageHash {
 		bytesig := y[i*32 : i*32+32]
 		var h [32]byte
