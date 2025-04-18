@@ -62,6 +62,11 @@ func GenerateKey(rand io.Reader) (fp *Fingerprint, sk *SecretKey, err error) {
 		return
 	}
 
+	return FingerprintFromSecretKey(sk), sk, nil
+}
+
+// FingerprintFromSecretKey returns a fingerprint of a public key from a secret key.
+func FingerprintFromSecretKey(sk *SecretKey) *Fingerprint {
 	// A full secret key contains 256 hash lists (each list being 32 hashes long).
 	// The first hash list is created from the 32 byte secret seed,
 	// and all other lists are hashes of each hash in the previous list.
@@ -83,11 +88,11 @@ func GenerateKey(rand io.Reader) (fp *Fingerprint, sk *SecretKey, err error) {
 		copy(y[off:off+32], h[:])
 	}
 
-	fp = new(Fingerprint)
+	fp := new(Fingerprint)
 	pkHash := blake2b.Sum256(y[:])
 	copy(fp[:], pkHash[:])
 
-	return
+	return fp
 }
 
 // checksummedMessageHash returns H(m)|C where C is a 2-byte little-endian
